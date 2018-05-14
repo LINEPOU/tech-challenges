@@ -24,13 +24,11 @@ public class SmartCamera : MonoBehaviour {
 	private float				_pauseTime;
 
 
-
 	public void				StartMove()
 	{
 		GameObject[]	sceneObjs;
 
 		_camera = this.gameObject.GetComponent<Camera> ();
-	
 		if (_camera == null) 
 		{
 			Debug.LogWarning ("SmartCamera work with Camera Component");
@@ -68,7 +66,7 @@ public class SmartCamera : MonoBehaviour {
 			_camera.orthographicSize = _initSize;	
 	}
 
-
+	// return the bounding box points of the mesh
 	private List<Vector3>	GetBoundingBoxPoints(GameObject obj)
 	{
 		Renderer 			mesh;
@@ -94,7 +92,7 @@ public class SmartCamera : MonoBehaviour {
 		return boundPoints;
 	}
 
-
+	// If meshes out of camera field of view, return max dist between camera sides and meshes (
 	private float		CalcDistMaxObj(List<Plane> planes)
 	{
 		List<Vector3>	boundPoints = new List<Vector3> ();
@@ -120,6 +118,7 @@ public class SmartCamera : MonoBehaviour {
 		return distmax;
 	}
 
+	// If meshes out of camera field of view, return max dist between camera sides and meshes (dist calculate with camera forward direction)
 	private float		CalcDistMaxForward(List<Plane> planes)
 	{
 		List<Vector3>	boundPoints = new List<Vector3> ();
