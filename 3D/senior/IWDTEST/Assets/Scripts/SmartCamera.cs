@@ -162,7 +162,6 @@ public class SmartCamera : MonoBehaviour {
 			planes.Add (new Plane (_camera.transform.forward, _camera.transform.position));
 		
 		distmax = CalcDistMaxForward (planes);
-		Debug.Log (distmax.ToString ());
 		if (distmax == 0f)
 			return _camera.transform.position;
 		if (_camera.orthographic)
