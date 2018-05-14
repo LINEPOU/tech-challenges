@@ -162,6 +162,7 @@ public class SmartCamera : MonoBehaviour {
 			planes.Add (new Plane (_camera.transform.forward, _camera.transform.position));
 		
 		distmax = CalcDistMaxForward (planes);
+		Debug.Log (distmax.ToString ());
 		if (distmax == 0f)
 			return _camera.transform.position;
 		if (_camera.orthographic)
@@ -196,6 +197,30 @@ public class SmartCamera : MonoBehaviour {
 		return distMaxY;
 	}
 
+	// Calc min camera dist view to see all objs
+	private float		CalcDistViewCamera()
+	{
+		GameObject		farestObj = null;
+		float			dist;
+		float 			maxDist = 0f;
+		List<Vector3>	points = new List<Vector3> ();
+
+		for (int i = 0; i < _meshes.Count; i++) {
+			dist = Vector3.Distance (_targetPos, _meshes [i].transform.position);
+			if (dist > maxDist) {
+				maxDist = dist;
+				farestObj = _meshes [i];
+			}
+		}
+		points = GetBoundingBoxPoints (farestObj);
+		for (int i = 0; i < points.Count; i++) {
+			dist = Vector3.Distance (_targetPos, points[i]);
+			if (dist > maxDist)
+				maxDist = dist;
+		}
+		return maxDist;
+	}
+
 	private void		MoveCamera()
 	{
 		_targetPos = CalcNewPos ();
@@ -205,6 +230,7 @@ public class SmartCamera : MonoBehaviour {
 			_targetSize = CalcNewSize (_camera.aspect, _initSize);
 			_zoomCamera = true;
 		}
+		_camera.farClipPlane = CalcDistViewCamera ();
 		_moveCamera = true;
 		_startTime = Time.time;
 	}
