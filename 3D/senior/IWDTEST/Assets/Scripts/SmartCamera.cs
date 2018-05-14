@@ -66,6 +66,21 @@ public class SmartCamera : MonoBehaviour {
 			_camera.orthographicSize = _initSize;	
 	}
 
+
+	private void		MoveCamera()
+	{
+		_targetPos = CalcNewPos ();
+		if (_camera.orthographic)
+		{
+			_initSize = _camera.orthographicSize;
+			_targetSize = CalcNewSize (_camera.aspect, _initSize);
+			_zoomCamera = true;
+		}
+		_camera.farClipPlane = CalcDistViewCamera ();
+		_moveCamera = true;
+		_startTime = Time.time;
+	}
+
 	// return the bounding box points of the mesh
 	private List<Vector3>	GetBoundingBoxPoints(GameObject obj)
 	{
@@ -93,7 +108,7 @@ public class SmartCamera : MonoBehaviour {
 	}
 
 	// If meshes out of camera field of view, return max dist between camera sides and meshes (
-	private float		CalcDistMaxObj(List<Plane> planes)
+	private float		CalcDistMax(List<Plane> planes)
 	{
 		List<Vector3>	boundPoints = new List<Vector3> ();
 		Ray 			ray;
@@ -181,12 +196,12 @@ public class SmartCamera : MonoBehaviour {
 		planes.Add(new Plane (_camera.transform.right, _targetPos));
 		planes.Add(new Plane (-_camera.transform.right, _targetPos));
 
-		distMaxX = CalcDistMaxObj (planes);
+		distMaxX = CalcDistMax (planes);
 		planes.Clear ();
 
 		planes.Add(new Plane (_camera.transform.up, _targetPos));
 		planes.Add(new Plane (-_camera.transform.up, _targetPos));
-		distMaxY = CalcDistMaxObj (planes);
+		distMaxY = CalcDistMax (planes);
 
 		if (distMaxX < distX && distMaxY < distY)
 			return size;
@@ -220,19 +235,7 @@ public class SmartCamera : MonoBehaviour {
 		return maxDist;
 	}
 
-	private void		MoveCamera()
-	{
-		_targetPos = CalcNewPos ();
-		if (_camera.orthographic)
-		{
-			_initSize = _camera.orthographicSize;
-			_targetSize = CalcNewSize (_camera.aspect, _initSize);
-			_zoomCamera = true;
-		}
-		_camera.farClipPlane = CalcDistViewCamera ();
-		_moveCamera = true;
-		_startTime = Time.time;
-	}
+
 
 	// Update is called once per frame
 	void Update ()
