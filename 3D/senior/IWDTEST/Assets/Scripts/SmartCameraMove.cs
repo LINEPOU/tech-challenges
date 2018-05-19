@@ -2,10 +2,34 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+
+class FocusObject
+{
+	private GameObject			_obj;
+	public GameObject 			Obj {
+		get {
+			return _obj;
+		}
+		set {
+			_obj = value;
+		}
+	}
+
+	private List<Vector3>		_boundingBoxPoints;
+	public List<Vector3> 		BoundingBoxPoints {
+		get {
+			return _boundingBoxPoints;
+		}
+		set {
+			_boundingBoxPoints = value;
+		}
+	}
+}
+
 public class SmartCameraMove : ICameraMove {
 
 	private Camera				_camera;
-	private GameObject[]		_targets;
+	private List<FocusObject>	_targets = new List<FocusObject>();
 
 	private Vector3				_initPos;
 	private Vector3				_targetPos;
@@ -28,6 +52,8 @@ public class SmartCameraMove : ICameraMove {
 
 	private bool 				_moveCamera = false;
 
+	private Vector3				 _objsCenter;
+
 
 	public void		InitMove(Camera camera, GameObject[] targets)
 	{
@@ -48,7 +74,12 @@ public class SmartCameraMove : ICameraMove {
 			return;
 		}
 		_camera = camera;
-		_targets = targets;
+		for (int i = 0; i < targets.Length; i++) {
+			FocusObject focusObj = new FocusObject ();
+			focusObj.Obj = targets [i];
+			focusObj.BoundingBoxPoints = GetBoundingBoxPoints (targets [i]);
+			_targets.Add (focusObj);
+		}
 		_initPos =_camera.transform.position;
 		CalcMove ();
 	}
@@ -65,7 +96,6 @@ public class SmartCameraMove : ICameraMove {
 
 		timeSinceStart = Time.time - _startTime;
 		lerpAdvance = timeSinceStart / _lerpDuration;
-
 		_camera.transform.position = Vector3.Lerp (_initPos, _targetPos, lerpAdvance);
 		if (_camera.orthographic)
 			_camera.orthographicSize = Mathf.Lerp (_initSize, _targetSize, lerpAdvance);
@@ -99,6 +129,7 @@ public class SmartCameraMove : ICameraMove {
 		
 	private void	CalcMove()
 	{
+		_camera.transform.position = CalcCenter ();
 		_targetPos = CalcNewPos ();
 		if (_camera.orthographic)
 		{
@@ -109,6 +140,7 @@ public class SmartCameraMove : ICameraMove {
 		_moveCamera = true;
 		_startTime = Time.time;
 		_pauseTime = 0f;
+		_camera.transform.position = _initPos;
 	}
 
 	// return the bounding box points of the mesh
@@ -137,23 +169,80 @@ public class SmartCameraMove : ICameraMove {
 		return boundPoints;
 	}
 
+	/*
+	private Vector3		CalcCenter2()
+	{
+		Ray ray;
+		Plane plane = new Plane (_camera.transform.forward, _camera.transform.position);
+		//Plane plane2 = new Plane (-_camera.transform.forward, _camera.transform.position);
+		float dist;
+		Vector3 pos = Vector3.one;
+
+		for (int i = 0; i < _targets.Count; i++) {
+			for (int i2 = 0; i2 < _targets [i].BoundingBoxPoints.Count; i2++) 
+			{
+				ray = new Ray (_targets [i].BoundingBoxPoints [i2], -_camera.transform.forward);
+				if (plane.Raycast (ray, out dist) )
+				{
+					pos = _targets [i].BoundingBoxPoints [i2] + (dist * -_camera.transform.forward);
+					GameObject obj = GameObject.CreatePrimitive (PrimitiveType.Sphere);
+					obj.transform.position = pos;
+					pos = _camera.transform.InverseTransformPoint (pos);
+					Debug.Log (pos.ToString());
+				}
+
+			}
+		}
+		return pos;
+	}
+*/
+	private Vector3		CalcCenter()
+	{
+		Vector3	min = Vector3.one;
+		Vector3	max = Vector3.one;
+		Vector3 center = Vector3.one;
+
+		for (int i = 0; i < _targets.Count; i++) {
+			for (int i2 = 0; i2 < _targets [i].BoundingBoxPoints.Count; i2++) 
+			{
+				if (i == 0 && i2 == 0) {
+					min = _targets [i].BoundingBoxPoints [i2];
+					max = _targets [i].BoundingBoxPoints [i2];
+				}
+
+				if (_targets [i].BoundingBoxPoints [i2].x > max.x)
+					max.x = _targets [i].BoundingBoxPoints [i2].x;
+				if (_targets [i].BoundingBoxPoints [i2].y > max.y)
+					max.y = _targets [i].BoundingBoxPoints [i2].y;
+				if (_targets [i].BoundingBoxPoints [i2].z > max.z)
+					max.z = _targets [i].BoundingBoxPoints [i2].z;
+
+				if (_targets [i].BoundingBoxPoints [i2].x < min.x)
+					min.x = _targets [i].BoundingBoxPoints [i2].x;
+				if (_targets [i].BoundingBoxPoints [i2].y < min.y)
+					min.y = _targets [i].BoundingBoxPoints [i2].y;
+				if (_targets [i].BoundingBoxPoints [i2].z < min.z)
+					min.z = _targets [i].BoundingBoxPoints [i2].z;
+			}
+		}
+		return new Vector3 ((min.x+max.x)/2, (min.y+max.y)/2, (min.z+max.z)/2);
+	}
+
 
 	// If meshes out of camera field of view, return max dist between camera sides and meshes (
 	private float		CalcDistMax(List<Plane> planes)
 	{
-		List<Vector3>	boundPoints = new List<Vector3> ();
 		Ray 			ray;
 		float 			dist;
 		float 			distmax = 0f;
 
-		for (int i = 0; i < _targets.Length; i++) 
+		for (int i = 0; i < _targets.Count; i++) 
 		{
-			boundPoints = GetBoundingBoxPoints (_targets [i]);
-			for (int i2 = 0; i2 < boundPoints.Count; i2++) 
+			for (int i2 = 0; i2 < _targets[i].BoundingBoxPoints.Count; i2++) 
 			{
 				for (int i3 = 0; i3 < planes.Count; i3++) 
 				{
-					ray = new Ray (boundPoints [i2], -planes[i3].normal);
+					ray = new Ray (_targets[i].BoundingBoxPoints[i2], -planes[i3].normal);
 					if (planes [i3].Raycast (ray, out dist)) {
 						if (dist > distmax)
 							distmax = dist;
@@ -167,19 +256,17 @@ public class SmartCameraMove : ICameraMove {
 	// If meshes out of camera field of view, return max dist between camera sides and meshes (dist calculate with camera forward direction)
 	private float		CalcDistMaxForward(List<Plane> planes)
 	{
-		List<Vector3>	boundPoints = new List<Vector3> ();
 		Ray 			ray;
 		float 			dist;
 		float 			distmax = 0f;
 
-		for (int i = 0; i < _targets.Length; i++) 
+		for (int i = 0; i < _targets.Count; i++) 
 		{
-			boundPoints = GetBoundingBoxPoints (_targets [i]);
-			for (int i2 = 0; i2 < boundPoints.Count; i2++) 
+			for (int i2 = 0; i2 < _targets[i].BoundingBoxPoints.Count; i2++) 
 			{
 				for (int i3 = 0; i3 < planes.Count; i3++) 
 				{
-					ray = new Ray (boundPoints [i2], _camera.transform.forward);
+					ray = new Ray (_targets[i].BoundingBoxPoints[i2], _camera.transform.forward);
 					if (planes [i3].Raycast (ray, out dist)) {
 						if (dist > distmax)
 							distmax = dist;
@@ -190,11 +277,15 @@ public class SmartCameraMove : ICameraMove {
 		return distmax;
 	}
 
+
 	private Vector3		CalcNewPos()
 	{
 		List<Plane> 	planes = new List<Plane> ();
 		float 			distmax;
+		Vector3 		targetPos;
+		Vector3 		translation;
 
+		//DESTINATION - ORIGINE
 		if (!_camera.orthographic) 
 		{
 			// Get field of view side planes
@@ -206,14 +297,40 @@ public class SmartCameraMove : ICameraMove {
 		} 
 		else
 			planes.Add (new Plane (_camera.transform.forward, _camera.transform.position));
-
+		
 		distmax = CalcDistMaxForward (planes);
 		if (distmax == 0f)
 			return _camera.transform.position;
 		if (_camera.orthographic)
 			distmax += 1f; // Add +1dist to skip visual bug with ortho camera
 
-		return (_camera.transform.position + ((-_camera.transform.forward) * distmax));
+		targetPos = _camera.transform.position + ((-_camera.transform.forward) * distmax);
+		targetPos = CalcNewPosObjTooClose (targetPos);
+		return targetPos;
+	}
+
+	private Vector3		CalcNewPosObjTooClose(Vector3 target)
+	{
+		float			dist;
+		float 			minDist = 0f;
+		Ray 			ray;
+
+		Plane plane = new Plane (_camera.transform.forward, target);
+
+		for (int i = 0; i < _targets.Count; i++) 
+		{
+			for (int i2 = 0; i2 < _targets[i].BoundingBoxPoints.Count; i2++) 
+			{
+				ray = new Ray (_targets[i].BoundingBoxPoints[i2], -_camera.transform.forward);
+				if (plane.Raycast (ray, out dist)) {
+					if (dist < minDist || (i == 0 && i2 == 0))
+						minDist = dist;
+				}
+			}
+		}
+		if (minDist < _camera.nearClipPlane)
+			target = target + ((-_camera.transform.forward) * (_camera.nearClipPlane-minDist));
+		return target;
 	}
 
 	private float		CalcNewSize(float aspect, float size)
@@ -245,23 +362,19 @@ public class SmartCameraMove : ICameraMove {
 	// Calc min camera dist view to see all objs
 	private float		CalcDistViewCamera()
 	{
-		GameObject		farestObj = null;
+		//GameObject		farestObj = null;
 		float			dist;
 		float 			maxDist = 0f;
 		List<Vector3>	points = new List<Vector3> ();
 
-		for (int i = 0; i < _targets.Length; i++) {
-			dist = Vector3.Distance (_targetPos, _targets [i].transform.position);
-			if (dist > maxDist) {
-				maxDist = dist;
-				farestObj = _targets [i];
+		for (int i = 0; i < _targets.Count; i++) 
+		{
+			for (int i2 = 0; i2 < _targets[i].BoundingBoxPoints.Count; i2++) 
+			{
+				dist = Vector3.Distance (_targetPos,_targets[i].BoundingBoxPoints[i2]);
+				if (dist > maxDist)
+					maxDist = dist;
 			}
-		}
-		points = GetBoundingBoxPoints (farestObj);
-		for (int i = 0; i < points.Count; i++) {
-			dist = Vector3.Distance (_targetPos, points[i]);
-			if (dist > maxDist)
-				maxDist = dist;
 		}
 		return maxDist;
 	}
