@@ -54,6 +54,9 @@ public class SmartCameraMove : ICameraMove {
 
 	private Vector3				 _objsCenter;
 
+	private Plane 				 _intersectPlane;
+	private FocusObject 		 _nearesObj;
+	private Vector3 			 _intersectPoint;
 
 	public void		InitMove(Camera camera, GameObject[] targets)
 	{
@@ -230,8 +233,12 @@ public class SmartCameraMove : ICameraMove {
 					ray = new Ray (_targets[i].BoundingBoxPoints[i2], -planes[i3].normal);
 					if (planes [i3].Raycast (ray, out dist)) 
 					{
-						if (dist > distmax)
+						if (dist > distmax) {
 							distmax = dist;
+							_intersectPlane = planes [i3];
+							_nearesObj = _targets [i];
+							_intersectPoint = _targets [i].BoundingBoxPoints [i2];
+						}
 					}
 				}
 			}
@@ -254,8 +261,12 @@ public class SmartCameraMove : ICameraMove {
 				{
 					ray = new Ray (_targets[i].BoundingBoxPoints[i2], _camera.transform.forward);
 					if (planes [i3].Raycast (ray, out dist)) {
-						if (dist > distmax)
+						if (dist > distmax) {
 							distmax = dist;
+							_intersectPlane = planes [i3];
+							_nearesObj = _targets [i];
+							_intersectPoint = _targets [i].BoundingBoxPoints [i2];
+						}
 					}
 				}
 			}
@@ -294,7 +305,6 @@ public class SmartCameraMove : ICameraMove {
 		float 			distmax = 0f;
 		float 			distmin = -1f;
 		Vector3 		targetPos;
-		Vector3 		translation;
 
 		//DESTINATION - ORIGINE
 		if (!_camera.orthographic) 
@@ -321,8 +331,46 @@ public class SmartCameraMove : ICameraMove {
 		targetPos = _camera.transform.position + ((-_camera.transform.forward) * distmax);
 		if (distmin != -1f)
 			targetPos = _camera.transform.position + (_camera.transform.forward * distmin);
+		if (!_camera.orthographic) 
+			targetPos = OptimizeSpace (targetPos);
 		targetPos = CalcNewPosObjTooClose (targetPos);
 		return targetPos;
+	}
+
+	private Vector3		OptimizeSpace(Vector3 targetPos)
+	{
+		Ray 				ray;
+		float 				dist;
+		float 				distmin = 0f;
+		bool 				first = true;
+		GameObject 			obj = null;
+		List<Plane> 		planes = new List<Plane> ();
+
+		_camera.transform.position = targetPos;
+		Plane[] frustum = GeometryUtility.CalculateFrustumPlanes (Camera.main);
+		for (int i = 0; i < 4; i++) {
+			if (frustum [i].normal != _intersectPlane.normal)
+				planes.Add (frustum [i]);
+		}
+		for (int i = 0; i < _targets.Count; i++) {
+			for (int i2 = 0; i2 < _targets [i].BoundingBoxPoints.Count; i2++) {
+				if (_targets [i].BoundingBoxPoints [i2] == _intersectPoint)
+					continue;
+				for (int i3 = 0; i3 < planes.Count; i3++) 
+				{
+					ray = new Ray (_targets[i].BoundingBoxPoints[i2], (targetPos - _intersectPoint).normalized);
+					if (planes [i3].Raycast (ray, out dist)) {
+						if (dist < distmin || first) 
+						{
+							distmin = dist;
+							obj = _targets [i].Obj;
+						}
+						first = false;
+					}	
+				}
+			}
+		}
+		return targetPos + ((_intersectPoint - targetPos).normalized * distmin);
 	}
 
 	private Vector3		CalcNewPosObjTooClose(Vector3 target)
