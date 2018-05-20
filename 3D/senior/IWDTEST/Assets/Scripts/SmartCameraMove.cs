@@ -55,7 +55,6 @@ public class SmartCameraMove : ICameraMove {
 	private Vector3				 _objsCenter;
 
 	private Plane 				 _intersectPlane;
-	private FocusObject 		 _nearesObj;
 	private Vector3 			 _intersectPoint;
 
 	public void		InitMove(Camera camera, GameObject[] targets)
@@ -235,9 +234,6 @@ public class SmartCameraMove : ICameraMove {
 					{
 						if (dist > distmax) {
 							distmax = dist;
-							_intersectPlane = planes [i3];
-							_nearesObj = _targets [i];
-							_intersectPoint = _targets [i].BoundingBoxPoints [i2];
 						}
 					}
 				}
@@ -264,7 +260,6 @@ public class SmartCameraMove : ICameraMove {
 						if (dist > distmax) {
 							distmax = dist;
 							_intersectPlane = planes [i3];
-							_nearesObj = _targets [i];
 							_intersectPoint = _targets [i].BoundingBoxPoints [i2];
 						}
 					}
@@ -273,7 +268,7 @@ public class SmartCameraMove : ICameraMove {
 		}
 		return distmax;
 	}
-	// If meshes out of camera field of view, return max dist between camera sides and meshes (dist calculate with camera forward direction)
+	// If meshes on camera, return min dist between camera sides and meshes (dist calculate with camera forward direction)
 	private float		CalcDistMinForward(List<Plane> planes)
 	{
 		Ray 			ray;
@@ -289,8 +284,11 @@ public class SmartCameraMove : ICameraMove {
 				{
 					ray = new Ray (_targets[i].BoundingBoxPoints[i2], -_camera.transform.forward);
 					if (planes [i3].Raycast (ray, out dist)) {
-						if (dist < distmin || first)
+						if (dist < distmin || first) {
 							distmin = dist;
+							_intersectPlane = planes [i3];
+							_intersectPoint = _targets [i].BoundingBoxPoints [i2];
+						}
 						first = false;
 					}
 				}
